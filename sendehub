@@ -1,12 +1,23 @@
-# This version requests user input for a given Log Analytic table name and send it to respective event hub topic.
-# Name of event hub topic is derived from the user input Log Analytics table name.
+# #################################################################################################################################################################
+# Remarks:     This version requests user input for a given Log Analytic table name. It queries the LA table based on specified time period.  
+#              Name of event hub topic is derived from the user input Log Analytics table name (suffix 'am-' is added to lower case table name provided by the user).
+#              A Rest API call is made and the output from the LA query is submitted to event hub.
+#              Row by row is iterated and size is calculated for a group of rows not to exceed ~0.97MB before submission to Event Hub. 
+# 
+# Constraints: Event hub can process maximum 1MB per message or 1000 events per second at this time. Log Analytics query can return max 500K rows or 64MB. However
+#              the event hub constraints are expected to be more prominent.
+#
 # Hardcoded $LogAnalyticsWorkspaceId and AccessPolicyName/Key.
+###################################################################################################################################################################
+
 
 PARAM(     
-
-    [Parameter(Mandatory=$false)] $LogAnalyticsWorkspaceId="ENTER_INFO",            
+           
+    [Parameter(Mandatory=$false)] $LogAnalyticsWorkspaceId="XXX",            
     [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
-    [Parameter(Mandatory=$false)] $Access_Policy_Key="ENTER_KEY"
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="XXX"
+   
+ 
  )
 
 
@@ -78,7 +89,7 @@ function GetListHub{
 
 }
 
-Function QueryLogAnalytics {  
+Function QueryLogAnalyticsSend {  
         Param(
         $TableName, 
         $startperiod, 
@@ -86,35 +97,29 @@ Function QueryLogAnalytics {
         $LogAnalyticsWorkspaceId
         )
         
+        $elapsedvar1 = Get-Date
+
         Write-Host "Executing query on Log Analytics, table $TableName..."
         
         $query = "$($TableName)| where TimeGenerated >= datetime($startperiod) and TimeGenerated <= datetime($endperiod)"
         $output = (Invoke-AzOperationalInsightsQuery -WorkspaceId $LogAnalyticsWorkspaceId -Query $query).Results
 
-        #$converted_output = $output | ConvertTo-Json
-        #$output_size = [System.Text.Encoding]::UTF8.GetByteCount($converted_output)
-        <#
-        Write-Host "Size of data to be pushed to Event Hub is $output_size Bytes."
-            
-        $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
-        send-datatoEventHub -token $SAStoken -row $converted_output -Namespace $EventHubNamespace -EventHub $EventHub
-
-        #> 
         $arrayrows = @()
+        $total_size_sent = 0
         $current_size = 0
-        $allowed_size = 1024 * 1024 - 1000
+        $allowed_size = 1024 * 1024 - 3000
         Write-Host "Allowed size is $allowed_size"     
+
         foreach ($row in $output) 
         {
                 
                 $irow++
                 $converted_row = $row | ConvertTo-Json
-                   
                 $row_size = [System.Text.Encoding]::UTF8.GetByteCount($converted_row)
-                       
                 $current_size = $current_size+$row_size
+                $total_size_sent = $total_size_sent + $current_size
 
-                  
+                            
                 IF ($current_size -gt $allowed_size) 
                 {
                     Write-Host "*** Current size to be sent: $current_size Bytes   Table is: $TableName *** "
@@ -127,8 +132,7 @@ Function QueryLogAnalytics {
                 }
 
                 $arrayrows = $arrayrows + $converted_row
-
-                 
+ 
         }
 
          Write-Host "*** Current size to be sent: $current_size Bytes   Table is: $TableName *** "
@@ -137,7 +141,11 @@ Function QueryLogAnalytics {
                    
          send-datatoEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
 
-         #Write-Host "*** Current size to be sent: $row_size Bytes   Table is: $TableName *** "
+         $elapsedvar2 = Get-Date
+         $elapsetime = $elapsedvar2 - $elapsedvar1
+         $total_size_sent_mb = $total_size_sent/1024
+         
+         Write-Host "Elapsed time:$elapsetime      Total size sent:$total_size_sent Bytes"
 
 }
 
@@ -180,7 +188,7 @@ foreach ($i in $workspacedetails) {
     }
 
 
-QueryLogAnalytics -TableName $TableName -startperiod $startperiod -endperiod $endperiod -LogAnalyticsWorkspaceId $LogAnalyticsWorkspaceId
+QueryLogAnalyticsSend -TableName $TableName -startperiod $startperiod -endperiod $endperiod -LogAnalyticsWorkspaceId $LogAnalyticsWorkspaceId
 
 
 
