@@ -1,11 +1,12 @@
 # #################################################################################################################################################################
 # Remarks:     This version requests user input for a given Log Analytic table name. It queries the LA table based on specified time period.  
-#              Name of event hub topic is derived from the user input Log Analytics table name; a suffix 'am-' is added to table name provided by the user).
+#              Name of event hub topic is derived from the user input Log Analytics table name; a suffix 'am-' is added to table name provided by the user and
+#              that corresponds to the event hub topic name. It is assumed the event hub namespace and event topic name is already created and functional.
 #              A Rest API call is made and the output from the LA query is submitted to event hub.
 #              Row by row is iterated and size is calculated for a group of rows not to exceed 1MB before submission to Event Hub. 
 # 
-# Constraints: Event hub can process maximum 1MB per message or 1000 events per second at this time. Log Analytics query can return max 500K rows or 64MB. However
-#              the event hub constraints are expected to be prominent.
+# Constraints: Event hub can process maximum 1MB per message or 1000 events per second at this time. Log Analytics query can return max 500K rows or 64MB. The
+#              the event hub constraints are expected to supersede other constraints.
 #
 # Hardcoded $LogAnalyticsWorkspaceId and AccessPolicyName/Key.
 ###################################################################################################################################################################
