@@ -1,0 +1,166 @@
+# This version requests user input for a given Log Analytic table name and send it to respective event hub topic.
+# Name of event hub topic is derived from the user input Log Analytics table name.
+# Hardcoded $LogAnalyticsWorkspaceId and AccessPolicyName/Key.
+
+PARAM(     
+           
+    [Parameter(Mandatory=$false)] $LogAnalyticsWorkspaceId="CHANGE_HERE",            
+    [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="CHANGE_HERE"
+   
+ 
+ )
+
+
+#########Functions
+
+Function get-SAStoken{
+
+    Param(
+        $EventHubNamespace,
+        $EventHub,
+        $Access_Policy_Name,
+        $Access_Policy_Key
+
+    )
+    [Reflection.Assembly]::LoadWithPartialName("System.Web")| out-null
+    $URI="$($EventHubNamespace).servicebus.windows.net/$($EventHub)"
+    #Token expires now+300
+    $Expires=([DateTimeOffset]::Now.ToUnixTimeSeconds())+3000
+    $SignatureString=[System.Web.HttpUtility]::UrlEncode($URI)+ "`n" + [string]$Expires
+    $HMAC = New-Object System.Security.Cryptography.HMACSHA256
+    $HMAC.key = [Text.Encoding]::ASCII.GetBytes($Access_Policy_Key)
+    $Signature = $HMAC.ComputeHash([Text.Encoding]::ASCII.GetBytes($SignatureString))
+    $Signature = [Convert]::ToBase64String($Signature)
+    $SASToken = "SharedAccessSignature sr=" + [System.Web.HttpUtility]::UrlEncode($URI) + "&sig=" + [System.Web.HttpUtility]::UrlEncode($Signature) + "&se=" + $Expires + "&skn=" + $Access_Policy_Name
+    
+    return $SASToken
+
+}
+
+function send-datatoEventHub{
+    param(
+    $token,
+    $row,
+    $Namespace,
+    $EventHub
+    )
+    Write-Host "Calling Rest API to send data to event hub topic $EventHub..."
+    $paras_DE = @{
+   
+    Uri = "https://$($Namespace).servicebus.windows.net/$($EventHub)/messages?api-version=2014-01"
+
+    ContentType = 'application/json'
+    Method = 'POST'
+    headers = @{
+        authorization = $token
+        
+    }
+
+    body = $row
+
+           
+    }
+    $result = Invoke-RestMethod @paras_DE
+    Write-Host $result + "--------- Data sent to Event Hub $EventHub."
+
+}
+
+$allehubtopic = @()
+
+function GetListHub{
+    Param(
+    $EventHubNamespace,
+    $RGName
+    )
+
+    $hubdata = Get-AzEventHub -Namespace $EventHubNamespace -ResourceGroupName $RGName
+    
+    return $hubdata
+
+}
+
+Function QueryLogAnalytics {  
+        Param(
+        $TableName, 
+        $startperiod, 
+        $endperiod, 
+        $LogAnalyticsWorkspaceId
+        )
+
+        Write-Host "Executing query on Log Analytics, table $TableName..."
+        
+        $query = "$($TableName)| where TimeGenerated >= datetime($startperiod) and TimeGenerated <= datetime($endperiod)"
+        $output = (Invoke-AzOperationalInsightsQuery -WorkspaceId $LogAnalyticsWorkspaceId -Query $query).Results
+
+        $converted_output = $output | ConvertTo-Json
+        $output_size = [System.Text.Encoding]::UTF8.GetByteCount($converted_output)
+
+        Write-Host "Size of data to be pushed to Event Hub is $output_size Bytes."
+            
+        $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
+        send-datatoEventHub -token $SAStoken -row $converted_output -Namespace $EventHubNamespace -EventHub $EventHub
+
+        <#####################################################################
+
+            #This option can execute row by row transmission.  
+            foreach ($row in $output) 
+            {
+                
+                   $irow++
+                   #$converted_row = $row | ConvertTo-Json
+                   
+                   $row_size = [System.Text.Encoding]::UTF8.GetByteCount($converted_row)
+                       
+                   $current_size = $current_size+$row_size
+                   Write-Host "*** Current size to be sent: $row_size Bytes   Table is: $TableName *** "
+               
+                   $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
+                   
+                   #Send row by row. 
+                   send-datatoEventHub -token $SAStoken -row $converted_row -Namespace $EventHubNamespace -EventHub $EventHub
+                 
+            }
+        #######################################################################>
+}
+
+<##############
+      MAIN()
+###############>
+
+$EventHubNamespace = Read-Host -Prompt "Enter eventhubnamespace"
+$TableName         = Read-Host -Prompt "Log Analytics Table(CASE SENSITIVE)"
+$startperiod = Read-Host -Prompt "Log export start date YYYY-MM-DD HH:MM:SS"
+$endperiod   = Read-Host -Prompt "Log export end   date YYYY-MM-DD HH:MM:SS"
+
+$makehub = $TableName.ToLower()
+$EventHub = "am-"+$makehub
+  
+$context = Get-AzContext
+
+if(!$context){
+    Connect-AzAccount
+    $context = Get-AzContext
+}
+
+$SubscriptionId = $context.Subscription.Id
+
+#Get All the Tables from LA Workspace
+$queryAllTables = 'search *| distinct $table| sort by $table asc nulls last'
+
+$resultsAllTables = (Invoke-AzOperationalInsightsQuery -WorkspaceId $LogAnalyticsWorkspaceId -Query $queryAllTables).Results
+
+$RGName = ""
+$loc = ""
+$workspacename = ""
+$workspacedetails = Get-AzOperationalInsightsWorkspace
+foreach ($i in $workspacedetails) {
+    if($i.CustomerId -eq $LogAnalyticsWorkspaceId) {
+        $RGName = $i.ResourceGroupName
+        $loc = $i.Location
+        $workspacename = $i.Name
+        }
+    }
+
+
+QueryLogAnalytics -TableName $TableName -startperiod $startperiod -endperiod $endperiod -LogAnalyticsWorkspaceId $LogAnalyticsWorkspaceId
