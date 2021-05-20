@@ -1,21 +1,26 @@
 # #################################################################################################################################################################
 # Remarks:     This version requests user input for a given Log Analytic table name. It queries the LA table based on specified time period.  
-#              Name of event hub topic is derived from the user input Log Analytics table name; a suffix 'am-' is added to table name provided by the user and
-#              that corresponds to the event hub topic name. It is assumed the event hub namespace and event topic name is already created and functional.
+#              Name of event hub topic is derived from the user input Log Analytics table name (suffix 'am-' is added to lower case table name provided by the user).
 #              A Rest API call is made and the output from the LA query is submitted to event hub.
-#              Row by row is iterated and size is calculated for a group of rows not to exceed 1MB before submission to Event Hub. 
+#              Row by row is iterated and size is calculated for a group of rows before submission to Event Hub. 
 # 
-# Constraints: Event hub can process maximum 1MB per message or 1000 events per second at this time. Log Analytics query can return max 500K rows or 64MB. The
-#              the event hub constraints are expected to supersede other constraints.
+# Constraints: Event hub can process maximum 1MB per message or 1000 events per second at this time. Log Analytics query can return max 500K rows or 64MB. However
+#              the event hub constraints are expected to be more prominent.
 #
 # Hardcoded $LogAnalyticsWorkspaceId and AccessPolicyName/Key.
 ###################################################################################################################################################################
 
+
 PARAM(     
+           
     [Parameter(Mandatory=$false)] $LogAnalyticsWorkspaceId="XXX",            
     [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
     [Parameter(Mandatory=$false)] $Access_Policy_Key="XXX"
+ 
  )
+
+
+#########Functions
 
 Function get-SAStoken{
 
@@ -24,6 +29,7 @@ Function get-SAStoken{
         $EventHub,
         $Access_Policy_Name,
         $Access_Policy_Key
+
     )
     [Reflection.Assembly]::LoadWithPartialName("System.Web")| out-null
     $URI="$($EventHubNamespace).servicebus.windows.net/$($EventHub)"
@@ -70,17 +76,6 @@ function send-datatoEventHub{
 
 $allehubtopic = @()
 
-function GetListHub{
-    Param(
-    $EventHubNamespace,
-    $RGName
-    )
-
-    $hubdata = Get-AzEventHub -Namespace $EventHubNamespace -ResourceGroupName $RGName
-    
-    return $hubdata
-
-}
 
 function QueryLogAnalyticsSend {  
         Param(
@@ -90,6 +85,9 @@ function QueryLogAnalyticsSend {
         $LogAnalyticsWorkspaceId
         )
         
+        $makehub = $TableName.ToLower()
+        $EventHub = "am-"+$makehub
+
         $elapsedvar1 = Get-Date
 
         Write-Host "Executing query on Log Analytics, table $TableName..."
@@ -111,8 +109,7 @@ function QueryLogAnalyticsSend {
                 $row_size = [System.Text.Encoding]::UTF8.GetByteCount($converted_row)
                 $current_size = $current_size+$row_size
                 $total_size_sent = $total_size_sent + $current_size
-
-                            
+            
                 IF ($current_size -gt $allowed_size) 
                 {
                     Write-Host "*** Current size to be sent: $current_size Bytes   Table is: $TableName *** "
@@ -136,7 +133,6 @@ function QueryLogAnalyticsSend {
 
          $elapsedvar2 = Get-Date
          $elapsetime = $elapsedvar2 - $elapsedvar1
-         $total_size_sent_mb = $total_size_sent
          
          Write-Host "Elapsed time:$elapsetime      Total size sent:$total_size_sent Bytes"
 
@@ -151,8 +147,6 @@ $TableName         = Read-Host -Prompt "Log Analytics Table(CASE SENSITIVE)"
 $startperiod = Read-Host -Prompt "Log export start date YYYY-MM-DD HH:MM:SS"
 $endperiod   = Read-Host -Prompt "Log export end   date YYYY-MM-DD HH:MM:SS"
 
-$makehub = $TableName.ToLower()
-$EventHub = "am-"+$makehub
   
 $context = Get-AzContext
 
@@ -162,11 +156,6 @@ if(!$context){
 }
 
 $SubscriptionId = $context.Subscription.Id
-
-#Get All the Tables from LA Workspace
-$queryAllTables = 'search *| distinct $table| sort by $table asc nulls last'
-
-$resultsAllTables = (Invoke-AzOperationalInsightsQuery -WorkspaceId $LogAnalyticsWorkspaceId -Query $queryAllTables).Results
 
 $RGName = ""
 $loc = ""
@@ -179,6 +168,8 @@ foreach ($i in $workspacedetails) {
         $workspacename = $i.Name
         }
     }
+
+
 QueryLogAnalyticsSend -TableName $TableName -startperiod $startperiod -endperiod $endperiod -LogAnalyticsWorkspaceId $LogAnalyticsWorkspaceId
 
 
