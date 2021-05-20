@@ -1,6 +1,6 @@
 # Remarks: This version requests user input for a given Log Analytics table name.
 #          Name of event hub topic is derived from the user input Log Analytics table name.
-#          User can input time and date for start and end of query. The query is then submitted to event hub via Rest API call.
+#          User can input time and date for start and end of query. The query output is then submitted to event hub via Rest API call.
 #          Note LogAnalyticsWorkspaceId and AccessPolicyName(key) is hardcoded for now.
 #########################################################################################################################
 
