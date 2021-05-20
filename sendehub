@@ -11,14 +11,10 @@
 # Hardcoded $LogAnalyticsWorkspaceId and AccessPolicyName/Key.
 ###################################################################################################################################################################
 
-
 PARAM(     
-           
     [Parameter(Mandatory=$false)] $LogAnalyticsWorkspaceId="XXX",            
     [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
     [Parameter(Mandatory=$false)] $Access_Policy_Key="XXX"
-   
- 
  )
 
 Function get-SAStoken{
@@ -28,7 +24,6 @@ Function get-SAStoken{
         $EventHub,
         $Access_Policy_Name,
         $Access_Policy_Key
-
     )
     [Reflection.Assembly]::LoadWithPartialName("System.Web")| out-null
     $URI="$($EventHubNamespace).servicebus.windows.net/$($EventHub)"
@@ -87,7 +82,7 @@ function GetListHub{
 
 }
 
-Function QueryLogAnalyticsSend {  
+function QueryLogAnalyticsSend {  
         Param(
         $TableName, 
         $startperiod, 
@@ -184,8 +179,6 @@ foreach ($i in $workspacedetails) {
         $workspacename = $i.Name
         }
     }
-
-
 QueryLogAnalyticsSend -TableName $TableName -startperiod $startperiod -endperiod $endperiod -LogAnalyticsWorkspaceId $LogAnalyticsWorkspaceId
 
 
