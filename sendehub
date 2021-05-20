@@ -1,14 +1,14 @@
-# Remarks: This version requests user input for a given Log Analytics table name.
-#          Name of event hub topic is derived from the user input Log Analytics table name.
-#          User can input time and date for start and end of query. The query output is then submitted to event hub via Rest API call.
-#          Note LogAnalyticsWorkspaceId and AccessPolicyName(key) is hardcoded for now.
-#########################################################################################################################
+# This version requests user input for a given Log Analytic table name and send it to respective event hub topic.
+# Name of event hub topic is derived from the user input Log Analytics table name.
+# Hardcoded $LogAnalyticsWorkspaceId and AccessPolicyName/Key.
+
+
 
 PARAM(     
            
-    [Parameter(Mandatory=$false)] $LogAnalyticsWorkspaceId="CHANGE_HERE",            
+    [Parameter(Mandatory=$false)] $LogAnalyticsWorkspaceId="6664044a-899d-4d66-84a4-c4bc8d8ecae8",            
     [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
-    [Parameter(Mandatory=$false)] $Access_Policy_Key="CHANGE_HERE"
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="Eibn9UvahjJjbxr6TIq6lmod6i7o2NXDVG/acBZ9NSk="
    
  
  )
@@ -89,41 +89,60 @@ Function QueryLogAnalytics {
         $endperiod, 
         $LogAnalyticsWorkspaceId
         )
-
+        
         Write-Host "Executing query on Log Analytics, table $TableName..."
         
         $query = "$($TableName)| where TimeGenerated >= datetime($startperiod) and TimeGenerated <= datetime($endperiod)"
         $output = (Invoke-AzOperationalInsightsQuery -WorkspaceId $LogAnalyticsWorkspaceId -Query $query).Results
 
-        $converted_output = $output | ConvertTo-Json
-        $output_size = [System.Text.Encoding]::UTF8.GetByteCount($converted_output)
-
+        #$converted_output = $output | ConvertTo-Json
+        #$output_size = [System.Text.Encoding]::UTF8.GetByteCount($converted_output)
+        <#
         Write-Host "Size of data to be pushed to Event Hub is $output_size Bytes."
             
         $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
         send-datatoEventHub -token $SAStoken -row $converted_output -Namespace $EventHubNamespace -EventHub $EventHub
 
-        <#####################################################################
-
-            #This option can execute row by row transmission.  
-            foreach ($row in $output) 
-            {
+        #> 
+        $arrayrows = @()
+        $current_size = 0
+        $allowed_size = 1024 * 1024 - 1000
+        Write-Host "Allowed size is $allowed_size"     
+        foreach ($row in $output) 
+        {
                 
-                   $irow++
-                   #$converted_row = $row | ConvertTo-Json
+                $irow++
+                $converted_row = $row | ConvertTo-Json
                    
-                   $row_size = [System.Text.Encoding]::UTF8.GetByteCount($converted_row)
+                $row_size = [System.Text.Encoding]::UTF8.GetByteCount($converted_row)
                        
-                   $current_size = $current_size+$row_size
-                   Write-Host "*** Current size to be sent: $row_size Bytes   Table is: $TableName *** "
-               
-                   $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
+                $current_size = $current_size+$row_size
+
+                  
+                IF ($current_size -gt $allowed_size) 
+                {
+                    Write-Host "*** Current size to be sent: $current_size Bytes   Table is: $TableName *** "
+                            
+                    $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
                    
-                   #Send row by row. 
-                   send-datatoEventHub -token $SAStoken -row $converted_row -Namespace $EventHubNamespace -EventHub $EventHub
+                    send-datatoEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
+                    $current_size = 0
+                    $arrayrows = @()
+                }
+
+                $arrayrows = $arrayrows + $converted_row
+
                  
-            }
-        #######################################################################>
+        }
+
+         Write-Host "*** Current size to be sent: $current_size Bytes   Table is: $TableName *** "
+                            
+         $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
+                   
+         send-datatoEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
+
+         #Write-Host "*** Current size to be sent: $row_size Bytes   Table is: $TableName *** "
+
 }
 
 <##############
@@ -166,3 +185,7 @@ foreach ($i in $workspacedetails) {
 
 
 QueryLogAnalytics -TableName $TableName -startperiod $startperiod -endperiod $endperiod -LogAnalyticsWorkspaceId $LogAnalyticsWorkspaceId
+
+
+
+
