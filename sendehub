@@ -2,15 +2,11 @@
 # Name of event hub topic is derived from the user input Log Analytics table name.
 # Hardcoded $LogAnalyticsWorkspaceId and AccessPolicyName/Key.
 
-
-
 PARAM(     
-           
-    [Parameter(Mandatory=$false)] $LogAnalyticsWorkspaceId="6664044a-899d-4d66-84a4-c4bc8d8ecae8",            
+
+    [Parameter(Mandatory=$false)] $LogAnalyticsWorkspaceId="ENTER_INFO",            
     [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
-    [Parameter(Mandatory=$false)] $Access_Policy_Key="Eibn9UvahjJjbxr6TIq6lmod6i7o2NXDVG/acBZ9NSk="
-   
- 
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="ENTER_KEY"
  )
 
 
