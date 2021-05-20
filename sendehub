@@ -143,7 +143,7 @@ Function QueryLogAnalyticsSend {
 
          $elapsedvar2 = Get-Date
          $elapsetime = $elapsedvar2 - $elapsedvar1
-         $total_size_sent_mb = $total_size_sent/1024
+         $total_size_sent_mb = $total_size_sent
          
          Write-Host "Elapsed time:$elapsetime      Total size sent:$total_size_sent Bytes"
 
