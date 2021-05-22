@@ -12,17 +12,14 @@
 
 
 PARAM(     
-           
-    [Parameter(Mandatory=$false)] $LogAnalyticsWorkspaceId="XXX",            
-    [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
-    [Parameter(Mandatory=$false)] $Access_Policy_Key="XXX"
+                    
+    [Parameter(Mandatory=$false)] $AccessPolicyName="xxxx",
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="xxxxx"
  
  )
 
 
-#########Functions
-
-Function get-SAStoken{
+function get-SAStoken{
 
     Param(
         $EventHubNamespace,
@@ -73,8 +70,6 @@ function send-datatoEventHub{
     Write-Host $result + "--------- Data sent to Event Hub $EventHub."
 
 }
-
-$allehubtopic = @()
 
 
 function QueryLogAnalyticsSend {  
@@ -142,36 +137,19 @@ function QueryLogAnalyticsSend {
       MAIN()
 ###############>
 
+
+$LogAnalyticsWorkspaceId = Read-Host -Prompt "LogAnalyticsWorkspaceId"
 $EventHubNamespace = Read-Host -Prompt "Enter eventhubnamespace"
 $TableName         = Read-Host -Prompt "Log Analytics Table(CASE SENSITIVE)"
 $startperiod = Read-Host -Prompt "Log export start date YYYY-MM-DD HH:MM:SS"
 $endperiod   = Read-Host -Prompt "Log export end   date YYYY-MM-DD HH:MM:SS"
-
   
-$context = Get-AzContext
+Try {
 
-if(!$context){
-    Connect-AzAccount
-    $context = Get-AzContext
+    QueryLogAnalyticsSend -TableName $TableName -startperiod $startperiod -endperiod $endperiod -LogAnalyticsWorkspaceId $LogAnalyticsWorkspaceId -ErrorAction Stop
+ }
+
+Catch {
+    Write-Host "Error detected during call to QueryLogAnalyticsSend"
+ 
 }
-
-$SubscriptionId = $context.Subscription.Id
-
-$RGName = ""
-$loc = ""
-$workspacename = ""
-$workspacedetails = Get-AzOperationalInsightsWorkspace
-foreach ($i in $workspacedetails) {
-    if($i.CustomerId -eq $LogAnalyticsWorkspaceId) {
-        $RGName = $i.ResourceGroupName
-        $loc = $i.Location
-        $workspacename = $i.Name
-        }
-    }
-
-
-QueryLogAnalyticsSend -TableName $TableName -startperiod $startperiod -endperiod $endperiod -LogAnalyticsWorkspaceId $LogAnalyticsWorkspaceId
-
-
-
-
