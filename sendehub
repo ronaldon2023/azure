@@ -13,8 +13,8 @@
 
 PARAM(     
                     
-    [Parameter(Mandatory=$false)] $AccessPolicyName="xxxx",
-    [Parameter(Mandatory=$false)] $Access_Policy_Key="xxxxx"
+    [Parameter(Mandatory=$false)] $AccessPolicyName="XX",
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="XX"
  
  )
 
@@ -43,7 +43,7 @@ function get-SAStoken{
 
 }
 
-function send-datatoEventHub{
+function SendDataToEventHub{
     param(
     $token,
     $row,
@@ -66,8 +66,14 @@ function send-datatoEventHub{
 
            
     }
-    $result = Invoke-RestMethod @paras_DE
-    Write-Host $result + "--------- Data sent to Event Hub $EventHub."
+
+    Try {
+         $result = Invoke-RestMethod @paras_DE
+         Write-Host $result + "--------- Data sent to Event Hub $EventHub."
+    } 
+    Catch {
+         Write-Host "Error during REST API send operation."
+    }
 
 }
 
@@ -94,8 +100,7 @@ function QueryLogAnalyticsSend {
         $total_size_sent = 0
         $current_size = 0
         $allowed_size = 1024 * 1024 - 3000
-        Write-Host "Allowed size is $allowed_size"     
-
+       
         foreach ($row in $output) 
         {
                 
@@ -111,7 +116,7 @@ function QueryLogAnalyticsSend {
                             
                     $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
                    
-                    send-datatoEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
+                    SendDataToEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
                     $current_size = 0
                     $arrayrows = @()
                 }
@@ -124,7 +129,7 @@ function QueryLogAnalyticsSend {
                             
          $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
                    
-         send-datatoEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
+         SendDataToEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
 
          $elapsedvar2 = Get-Date
          $elapsetime = $elapsedvar2 - $elapsedvar1
@@ -137,10 +142,15 @@ function QueryLogAnalyticsSend {
       MAIN()
 ###############>
 
+$default = $LogAnalyticsWorkspaceId
 
-$LogAnalyticsWorkspaceId = Read-Host -Prompt "LogAnalyticsWorkspaceId"
+if (!($value = Read-Host "LogAnalyticsWorkspaceId or ENTER to accept[$default]")) { $value = $default }
+
+$LogAnalyticsWorkspaceId = $value
+
+#$LogAnalyticsWorkspaceId = Read-Host -Prompt "LogAnalyticsWorkspaceId"
 $EventHubNamespace = Read-Host -Prompt "Enter eventhubnamespace"
-$TableName         = Read-Host -Prompt "Log Analytics Table(CASE SENSITIVE)"
+$TableName         = Read-Host -Prompt "Log Analytics Table (CASE SENSITIVE)"
 $startperiod = Read-Host -Prompt "Log export start date YYYY-MM-DD HH:MM:SS"
 $endperiod   = Read-Host -Prompt "Log export end   date YYYY-MM-DD HH:MM:SS"
   
