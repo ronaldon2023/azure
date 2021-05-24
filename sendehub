@@ -13,7 +13,7 @@
 
 PARAM(     
                     
-    [Parameter(Mandatory=$false)] $AccessPolicyName="XX",
+    [Parameter(Mandatory=$false)] $AccessPolicyName="XXX",
     [Parameter(Mandatory=$false)] $Access_Policy_Key="XX"
  
  )
@@ -94,7 +94,15 @@ function QueryLogAnalyticsSend {
         Write-Host "Executing query on Log Analytics, table $TableName..."
         
         $query = "$($TableName)| where TimeGenerated >= datetime($startperiod) and TimeGenerated <= datetime($endperiod)"
-        $output = (Invoke-AzOperationalInsightsQuery -WorkspaceId $LogAnalyticsWorkspaceId -Query $query).Results
+
+        Try {
+
+            $output = (Invoke-AzOperationalInsightsQuery -WorkspaceId $LogAnalyticsWorkspaceId -Query $query).Results
+        }
+
+        Catch {
+            Write-Host "Error during Invoke-AzOperationalInsightsQuery"
+        }
 
         $arrayrows = @()
         $total_size_sent = 0
@@ -142,17 +150,20 @@ function QueryLogAnalyticsSend {
       MAIN()
 ###############>
 
-$default = $LogAnalyticsWorkspaceId
 
-if (!($value = Read-Host "LogAnalyticsWorkspaceId or ENTER to accept[$default]")) { $value = $default }
+$default = $LogAnalyticsWorkspaceId
+If (!($value = Read-Host "LA WorkspaceId[$default]")) { $value = $default }
 
 $LogAnalyticsWorkspaceId = $value
 
-#$LogAnalyticsWorkspaceId = Read-Host -Prompt "LogAnalyticsWorkspaceId"
-$EventHubNamespace = Read-Host -Prompt "Enter eventhubnamespace"
+$temp_default = $EventHubNamespace
+If (!($value = Read-Host "EventHubNamespace[$temp_default]")) { $value = $temp_default }
+$EventHubNamespace = $value
+
 $TableName         = Read-Host -Prompt "Log Analytics Table (CASE SENSITIVE)"
 $startperiod = Read-Host -Prompt "Log export start date YYYY-MM-DD HH:MM:SS"
 $endperiod   = Read-Host -Prompt "Log export end   date YYYY-MM-DD HH:MM:SS"
+
   
 Try {
 
