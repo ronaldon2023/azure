@@ -150,10 +150,9 @@ function QueryLogAnalyticsSend {
       MAIN()
 ###############>
 
-
+# Use a cached value for LA and EventHubNamespace in order to avoid repeated typing.
 $default = $LogAnalyticsWorkspaceId
 If (!($value = Read-Host "LA WorkspaceId[$default]")) { $value = $default }
-
 $LogAnalyticsWorkspaceId = $value
 
 $temp_default = $EventHubNamespace
