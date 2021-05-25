@@ -2,7 +2,7 @@
 # Remarks:     This version requests user input for a given Log Analytic table name. It queries the LA table based on specified time period.  
 #              Name of event hub topic is derived from the user input Log Analytics table name (suffix 'am-' is added to lower case table name provided by the user).
 #              A Rest API call is made and the output from the LA query is submitted to event hub.
-#              Content from tables row by row is iterated and size is calculated for a group of rows before submission to Event Hub. 
+#              Row by row is iterated and size is calculated for a group of rows before submission to Event Hub. 
 # 
 # Constraints: Event hub can process maximum 1MB per message or 1000 events per second at this time. Log Analytics query can return max 500K rows or 64MB. However
 #              the event hub constraints are expected to be more prominent.
@@ -11,11 +11,13 @@
 ###################################################################################################################################################################
 
 
-PARAM(     
+PARAM(     a
                     
-    [Parameter(Mandatory=$false)] $AccessPolicyName="XXX",
-    [Parameter(Mandatory=$false)] $Access_Policy_Key="XX"
-  )
+    [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="3GmuOn0OLOMg90Mr/GZr88sT9suR5k+zqcejtUXi+C4="
+ 
+ )
+
 
 function get-SAStoken{
 
@@ -102,6 +104,7 @@ function QueryLogAnalyticsSend {
             Write-Host "Error during Invoke-AzOperationalInsightsQuery"
         }
 
+
         $arrayrows = @()
         $total_size_sent = 0
         $current_size = 0
@@ -138,9 +141,9 @@ function QueryLogAnalyticsSend {
          SendDataToEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
 
          $elapsedvar2 = Get-Date
-         $elapsedtime = $elapsedvar2 - $elapsedvar1
+         $elapsetime = $elapsedvar2 - $elapsedvar1
          
-         Write-Host "Elapsed time:$elapsedtime      Total size sent:$total_size_sent Bytes"
+         Write-Host "Elapsed time:$elapsetime      Total size sent:$total_size_sent Bytes"
 
 }
 
@@ -148,7 +151,7 @@ function QueryLogAnalyticsSend {
       MAIN()
 ###############>
 
-# Use a cached value for LA and EventHubNamespace in order to avoid repeated typing.
+
 $default = $LogAnalyticsWorkspaceId
 If (!($value = Read-Host "LA WorkspaceId[$default]")) { $value = $default }
 $LogAnalyticsWorkspaceId = $value
@@ -156,7 +159,7 @@ $LogAnalyticsWorkspaceId = $value
 $temp_default = $EventHubNamespace
 If (!($value = Read-Host "EventHubNamespace[$temp_default]")) { $value = $temp_default }
 $EventHubNamespace = $value
-
+L
 $TableName         = Read-Host -Prompt "Log Analytics Table (CASE SENSITIVE)"
 $startperiod = Read-Host -Prompt "Log export start date YYYY-MM-DD HH:MM:SS"
 $endperiod   = Read-Host -Prompt "Log export end   date YYYY-MM-DD HH:MM:SS"
