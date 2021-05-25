@@ -11,10 +11,10 @@
 ###################################################################################################################################################################
 
 
-PARAM(     a
+PARAM(   
                     
     [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
-    [Parameter(Mandatory=$false)] $Access_Policy_Key="xxxx"
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="xxx"
  
  )
 
@@ -101,7 +101,7 @@ function QueryLogAnalyticsSend {
         }
 
         Catch {
-            Write-Host "Error during Invoke-AzOperationalInsightsQuery"
+            Write-Host "Error during Invoke-AzOperationalInsightsQuery. Verify 1) PowerShell Module Az is installed 2) LA Work ID is correct 3) DateTime syntax is correct. "
         }
 
 
@@ -117,7 +117,7 @@ function QueryLogAnalyticsSend {
                 $converted_row = $row | ConvertTo-Json
                 $row_size = [System.Text.Encoding]::UTF8.GetByteCount($converted_row)
                 $current_size = $current_size+$row_size
-                $total_size_sent = $total_size_sent + $current_size
+             
             
                 IF ($current_size -gt $allowed_size) 
                 {
@@ -126,6 +126,8 @@ function QueryLogAnalyticsSend {
                     $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
                    
                     SendDataToEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
+
+                    $total_size_sent = $total_size_sent + $current_size
                     $current_size = 0
                     $arrayrows = @()
                 }
@@ -143,7 +145,8 @@ function QueryLogAnalyticsSend {
          $elapsedvar2 = Get-Date
          $elapsetime = $elapsedvar2 - $elapsedvar1
          
-         Write-Host "Elapsed time:$elapsetime      Total size sent:$total_size_sent Bytes"
+         $total_size_sent = $total_size_sent + $current_size
+         Write-Host "Elapsed time:$elapsetime      Total size sent:$total_size_sent Bytes    Start:$elapsedvar1    End:$elapsedvar2"
 
 }
 
@@ -159,7 +162,7 @@ $LogAnalyticsWorkspaceId = $value
 $temp_default = $EventHubNamespace
 If (!($value = Read-Host "EventHubNamespace[$temp_default]")) { $value = $temp_default }
 $EventHubNamespace = $value
-L
+
 $TableName         = Read-Host -Prompt "Log Analytics Table (CASE SENSITIVE)"
 $startperiod = Read-Host -Prompt "Log export start date YYYY-MM-DD HH:MM:SS"
 $endperiod   = Read-Host -Prompt "Log export end   date YYYY-MM-DD HH:MM:SS"
