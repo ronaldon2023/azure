@@ -140,9 +140,9 @@ function QueryLogAnalyticsSend {
          SendDataToEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
 
          $elapsedvar2 = Get-Date
-         $elapsetime = $elapsedvar2 - $elapsedvar1
+         $elapsedtime = $elapsedvar2 - $elapsedvar1
          
-         Write-Host "Elapsed time:$elapsetime      Total size sent:$total_size_sent Bytes"
+         Write-Host "Elapsed time:$elapsedtime      Total size sent:$total_size_sent Bytes"
 
 }
 
