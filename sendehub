@@ -15,9 +15,7 @@ PARAM(
                     
     [Parameter(Mandatory=$false)] $AccessPolicyName="XXX",
     [Parameter(Mandatory=$false)] $Access_Policy_Key="XX"
- 
- )
-
+  )
 
 function get-SAStoken{
 
