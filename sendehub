@@ -14,7 +14,7 @@
 PARAM(   
                     
     [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
-    [Parameter(Mandatory=$false)] $Access_Policy_Key="xxxxxxx
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="3GmuOn0OLOMg90Mr/GZr88sT9suR5k+zqcejtUXi+C4="
  
  )
 
@@ -51,10 +51,10 @@ function SendDataToEventHub{
     $EventHub
     )
 
-    $body_compose =  $row -join ", " 
+    $body_compose =  $row -join "," 
     $body_compose = "[" + $body_compose + "]"
     Write-Host $body_compose
-
+   
     Write-Host "Calling Rest API to send data to event hub topic $EventHub..."
     $paras_DE = @{
    
@@ -74,6 +74,7 @@ function SendDataToEventHub{
     Try {
          $result = Invoke-RestMethod @paras_DE
          Write-Host $result + "--------- Data sent to Event Hub $EventHub."
+
     } 
     Catch {
          Write-Host "Error during REST API send operation."
@@ -117,6 +118,7 @@ function QueryLogAnalyticsSend {
         foreach ($row in $output) 
         {
                 
+               
                 $irow++
                 $converted_row = $row | ConvertTo-Json
                 $row_size = [System.Text.Encoding]::UTF8.GetByteCount($converted_row)
@@ -145,7 +147,7 @@ function QueryLogAnalyticsSend {
          $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
                    
          SendDataToEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
-        
+         
          $elapsedvar2 = Get-Date
          $elapsetime = $elapsedvar2 - $elapsedvar1
          
@@ -158,8 +160,10 @@ function QueryLogAnalyticsSend {
       MAIN()
 ###############>
 
+#$LogAnalyticsWorkspaceId = Read-Host -Prompt "Log WID:"
 
-$default = $LogAnalyticsWorkspaceId
+
+$default = "5dd67a86-09ea-4310-bf07-99c209a19ec1"
 If (!($value = Read-Host "LA WorkspaceId[$default]")) { $value = $default }
 $LogAnalyticsWorkspaceId = $value
 
@@ -170,6 +174,7 @@ $EventHubNamespace = $value
 $TableName         = Read-Host -Prompt "Log Analytics Table (CASE SENSITIVE)"
 $startperiod = Read-Host -Prompt "Log export start date YYYY-MM-DD HH:MM:SS"
 $endperiod   = Read-Host -Prompt "Log export end   date YYYY-MM-DD HH:MM:SS"
+
 
   
 Try {
