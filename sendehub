@@ -160,10 +160,7 @@ function QueryLogAnalyticsSend {
       MAIN()
 ###############>
 
-#$LogAnalyticsWorkspaceId = Read-Host -Prompt "Log WID:"
-
-
-$default = "5dd67a86-09ea-4310-bf07-99c209a19ec1"
+$default = "xxx"
 If (!($value = Read-Host "LA WorkspaceId[$default]")) { $value = $default }
 $LogAnalyticsWorkspaceId = $value
 
