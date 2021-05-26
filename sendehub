@@ -1,4 +1,4 @@
-# #################################################################################################################################################################
+#################################################################################################################################################################
 # Remarks:     This version requests user input for a given Log Analytic table name. It queries the LA table based on specified time period.  
 #              Name of event hub topic is derived from the user input Log Analytics table name (suffix 'am-' is added to lower case table name provided by the user).
 #              A Rest API call is made and the output from the LA query is submitted to event hub.
@@ -14,7 +14,7 @@
 PARAM(   
                     
     [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
-    [Parameter(Mandatory=$false)] $Access_Policy_Key="xxx"
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="xxxxxxx
  
  )
 
@@ -50,6 +50,11 @@ function SendDataToEventHub{
     $Namespace,
     $EventHub
     )
+
+    $body_compose =  $row -join ", " 
+    $body_compose = "[" + $body_compose + "]"
+    Write-Host $body_compose
+
     Write-Host "Calling Rest API to send data to event hub topic $EventHub..."
     $paras_DE = @{
    
@@ -62,11 +67,10 @@ function SendDataToEventHub{
         
     }
 
-    body = $row
-
+    body = $body_compose
            
     }
-
+    
     Try {
          $result = Invoke-RestMethod @paras_DE
          Write-Host $result + "--------- Data sent to Event Hub $EventHub."
@@ -126,7 +130,7 @@ function QueryLogAnalyticsSend {
                     $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
                    
                     SendDataToEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
-
+                   
                     $total_size_sent = $total_size_sent + $current_size
                     $current_size = 0
                     $arrayrows = @()
@@ -141,7 +145,7 @@ function QueryLogAnalyticsSend {
          $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
                    
          SendDataToEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
-
+        
          $elapsedvar2 = Get-Date
          $elapsetime = $elapsedvar2 - $elapsedvar1
          
