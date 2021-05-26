@@ -14,7 +14,7 @@
 PARAM(   
                     
     [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
-    [Parameter(Mandatory=$false)] $Access_Policy_Key="3GmuOn0OLOMg90Mr/GZr88sT9suR5k+zqcejtUXi+C4="
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="xxxx"
  
  )
 
