@@ -1,0 +1,337 @@
+#################################################################################################################################################################
+# Remarks:     Added ability to increment queries to avoid memory limitations and timeout.
+               This version requests user input for a given Log Analytic table name. It queries the LA table based on specified time period.  
+#              Name of event hub topic is derived from the user input Log Analytics table name (suffix 'am-' is added to lower case table name provided by the user).
+#              A Rest API call is made and the output from the LA query is submitted to event hub.
+#              Row by row is iterated and size is calculated for a group of rows before submission to Event Hub. 
+# 
+# Constraints: Event hub can process maximum 1MB per message or 1000 events per second at this time. Log Analytics query can return max 500K rows or 64MB. However
+#              the event hub constraints are expected to be more prominent.
+#
+# Hardcoded    AccessPolicyName/Key.
+#
+# v1.0 production configuration of heartbeathistory ported rows successfully.
+#      table mapping created manually in ADX and data ingestion created manually.
+###################################################################################################################################################################
+#6664044a-899d-4d66-84a4-c4bc8d8ecae8    CLODSECLAB2 LA
+#5dd67a86-09ea-4310-bf07-99c209a19ec1    PROD
+
+PARAM(   
+                    
+    [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="XX"    #PROD 
+    #[Parameter(Mandatory=$false)] $Access_Policy_Key="XX"   #LAB2
+ )
+
+
+function get-SAStoken{
+
+    Param(
+        $EventHubNamespace,
+        $EventHub,
+        $Access_Policy_Name,
+        $Access_Policy_Key
+
+    )
+    [Reflection.Assembly]::LoadWithPartialName("System.Web")| out-null
+    $URI="$($EventHubNamespace).servicebus.windows.net/$($EventHub)"
+    #Token expires now+300
+    $Expires=([DateTimeOffset]::Now.ToUnixTimeSeconds())+3000
+    $SignatureString=[System.Web.HttpUtility]::UrlEncode($URI)+ "`n" + [string]$Expires
+    $HMAC = New-Object System.Security.Cryptography.HMACSHA256
+    $HMAC.key = [Text.Encoding]::ASCII.GetBytes($Access_Policy_Key)
+    $Signature = $HMAC.ComputeHash([Text.Encoding]::ASCII.GetBytes($SignatureString))
+    $Signature = [Convert]::ToBase64String($Signature)
+    $SASToken = "SharedAccessSignature sr=" + [System.Web.HttpUtility]::UrlEncode($URI) + "&sig=" + [System.Web.HttpUtility]::UrlEncode($Signature) + "&se=" + $Expires + "&skn=" + $Access_Policy_Name
+    
+    return $SASToken
+
+}
+
+function SendDataToEventHub{
+    param(
+    $token,
+    $row,
+    $Namespace,
+    $EventHub
+    )
+    
+    $body_compose =  $row -join "," 
+    $body_compose = "[" + $body_compose + "]"
+    #Write-Host $body_compose
+
+   
+    Write-Host "Calling Rest API to send data to event hub topic $EventHub..."
+    $paras_DE = @{
+   
+    Uri = "https://$($Namespace).servicebus.windows.net/$($EventHub)/messages?api-version=2014-01"
+
+    ContentType = 'application/json'
+    Method = 'POST'
+    headers = @{
+        authorization = $token
+        
+    }
+
+    body = $body_compose
+           
+    }
+    
+    Try {
+         $result = Invoke-RestMethod @paras_DE
+         Write-Host $result + " Data sent to Event Hub $EventHub." #%%%%%%%%%%%%%%%%%%%%%% < == change this, not sending now for testing
+
+    } 
+    Catch {
+         Write-Host "!!! Error during REST API send operation. These logs may need to be re-exported $body_compose"
+    }
+
+}
+
+
+function QueryLogAnalyticsSend {  
+        Param(
+        $TableName, 
+        $startperiod, 
+        $endperiod, 
+        $LogAnalyticsWorkspaceId
+        )
+        
+        $makehub = $TableName.ToLower() 
+        $EventHub = "am-"+$makehuB
+        $EventHub = "am-heartbeathistory"
+       
+
+        $elapsedvar1 = Get-Date
+
+        Write-Host "Executing query on Log Analytics, table $TableName..."
+        
+        $query = "$($TableName)| where TimeGenerated >= datetime($startperiod) and TimeGenerated <= datetime($endperiod)"
+       
+
+        Try {
+
+            $output = (Invoke-AzOperationalInsightsQuery -WorkspaceId $LogAnalyticsWorkspaceId -Query $query).Results
+        }
+
+        Catch {
+            Write-Host "Error during Invoke-AzOperationalInsightsQuery. Verify 1) PowerShell Module Az is installed 2) LA Work ID is correct 3) DateTime syntax is correct. "
+        }
+
+
+        $arrayrows = @()
+        $total_size_sent = 0
+        $current_size = 0
+        $allowed_size = 1024 * 1024 - 3000
+       
+        foreach ($row in $output) 
+        {
+                
+                $irow++
+                $converted_row = $row | ConvertTo-Json
+                $row_size = [System.Text.Encoding]::UTF8.GetByteCount($converted_row)
+                $current_size = $current_size+$row_size
+             
+            
+                IF ($current_size -gt $allowed_size) 
+                {
+                    Write-Host "*** Current size to be sent: $current_size Bytes   Table is: $TableName *** "
+                            
+                    $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
+                   
+                    SendDataToEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
+                   
+                    $total_size_sent = $total_size_sent + $current_size
+                    $current_size = 0
+                    $arrayrows = @()
+                }
+
+                $arrayrows = $arrayrows + $converted_row
+ 
+        }
+
+         Write-Host "*** Current size to be sent: $current_size Bytes   Table is: $TableName *** "
+                            
+         $SAStoken = get-SAStoken -EventHubNamespace $EventHubNamespace -EventHub $EventHub -Access_Policy_Name $AccessPolicyName -Access_Policy_Key $Access_Policy_Key
+                   
+         SendDataToEventHub -token $SAStoken -row $arrayrows -Namespace $EventHubNamespace -EventHub $EventHub
+         
+         $elapsedvar2 = Get-Date
+         $elapsedtime = $elapsedvar2 - $elapsedvar1
+         
+         $total_size_sent = $total_size_sent + $current_size
+         Write-Host "Elapsed time:$elapsedtime      Total size sent:$total_size_sent Bytes    Start:$elapsedvar1    End:$elapsedvar2    Rows:$irow"
+         
+
+}
+
+function buildTableMappings {
+      Param(
+      $LogAnalyticsWorkspaceId
+      )
+$table = "Heartbeat"     
+#Get All the Tables from LA Workspace
+$queryAllTables = 'search *| distinct $table| sort by $table asc nulls last'
+
+$resultsAllTables = (Invoke-AzOperationalInsightsQuery -WorkspaceId $LogAnalyticsWorkspaceId -Query $queryAllTables).Results
+
+foreach ($table in $resultsAllTables) {
+    $TableName = $table.'$table'
+    IF ($TableName -match '_CL$'){
+        Write-Output "Custom Log Table : $TableName not supported"
+    }
+    else {        
+        $query = $TableName + ' | getschema | project ColumnName, DataType'
+
+        $output = (Invoke-AzOperationalInsightsQuery -WorkspaceId $LogAnalyticsWorkspaceId -Query $query).Results
+
+        $TableExpandFunction = $TableName + 'Expand'
+        $TableRaw = $TableName + 'Raw'
+        $RawMapping = $TableRaw + 'Mapping'
+
+        $FirstCommand = @()
+        $ThirdCommand = @()
+
+        foreach ($record in $output) {
+            if ($record.DataType -eq 'System.DateTime') {
+                $dataType = 'datetime'
+                $ThirdCommand += $record.ColumnName + " = todatetime(events." + $record.ColumnName + "),"
+            } else {
+                $dataType = 'string'
+                $ThirdCommand += $record.ColumnName + " = tostring(events." + $record.ColumnName + "),"
+            }
+            $FirstCommand += $record.ColumnName + ":" + "$dataType" + ","    
+        }
+
+        $schema = ($FirstCommand -join '') -replace ',$'
+        $function = ($ThirdCommand -join '') -replace ',$'
+
+        $CreateRawTable = @'
+.create table {0} (Records:dynamic)
+'@ -f $TableRaw
+
+        $CreateRawMapping = @'
+.create table {0} ingestion json mapping '{1}' '[{{"column":"Records","Properties":{{"path":"$.records"}}}}]'
+'@ -f $TableRaw, $RawMapping
+
+        $CreateRetention = @'
+.alter-merge table {0} policy retention softdelete = 0d
+'@ -f $TableRaw
+
+        $CreateTable = @'
+.create table {0} ({1})
+'@ -f $TableName, $schema
+
+        $CreateFunction = @'
+.create-or-alter function {0} {{{1} | mv-expand events = Records | project {2} }}
+'@ -f $TableExpandFunction, $TableRaw, $function
+
+        $CreatePolicyUpdate = @'
+.alter table {0} policy update @'[{{"Source": "{1}", "Query": "{2}()", "IsEnabled": "True", "IsTransactional": true}}]'
+'@ -f $TableName, $TableRaw, $TableExpandFunction
+
+        $scriptDir = "$PSScriptRoot\KustoQueries"
+        New-Item "$scriptDir\adxCommands.txt"
+        Add-Content "$scriptDir\adxCommands.txt" "`n$CreateRawTable"
+        Add-Content "$scriptDir\adxCommands.txt" "`n$CreateRawMapping"
+        Add-Content "$scriptDir\adxCommands.txt" "`n$CreateRetention"
+        Add-Content "$scriptDir\adxCommands.txt" "`n$CreateTable"
+        Add-Content "$scriptDir\adxCommands.txt" "`n$CreateFunction"
+        Add-Content "$scriptDir\adxCommands.txt" "`n$CreatePolicyUpdate"
+
+        InvokeKustoCLI -AdxCommandsFile "$scriptDir\adxCommands.txt"
+
+        Remove-Item $scriptDir\adxCommands.txt -Force -ErrorAction Ignore        
+    }
+}
+Write-Host "Successfully created all the tables in ADX Cluster Database"
+Write-Host "Please create Ingestion Pipeline"
+}
+
+function IncrementQuery {
+     PARAM(
+           $period,
+           $type,
+           $finalperiod
+           
+           )
+            IF ($type -eq "MIN") 
+            {
+               
+                $endDateObj = [datetime]::ParseExact($period,"yyyy-MM-dd HH:mm:ss",$null)
+                #convert back to datetime format yyyy-MM-dd HH:mm:ss
+                $incrdatetime = ($endDateObj.AddMinutes(60)).ToString("yyyy-MM-dd HH:mm:ss")
+
+              
+                IF ($incrdatetime -ge $finalperiod) 
+              
+                {
+                    $i = 0
+                    DO
+                    {
+                       $i++
+                       $incrdatetime = ($endDateObj.AddMinutes($i)).ToString("yyyy-MM-dd HH:mm:ss") 
+                     
+                       
+                    } While ($incrdatetime -lt $finalperiod)
+
+                }
+                
+
+            } else {
+                $endDateObj = [datetime]::ParseExact($period,"yyyy-MM-dd HH:mm:ss",$null)
+                #convert back to datetime format yyyy-MM-dd HH:mm:ss
+                $incrdatetime = ($endDateObj.AddSeconds(1)).ToString("yyyy-MM-dd HH:mm:ss")
+
+            }   
+            return $incrdatetime
+
+}
+
+
+<##############
+      MAIN()
+###############>
+
+
+$templa_default = "5dd67a86-09ea-4310-bf07-99c209a19ec1"
+If (!($value = Read-Host "LA WorkspaceId[$templa_default]")) { $value = $templa_default }
+$LogAnalyticsWorkspaceId = $value
+
+#buildTableMappings -LogAnalyticsWorkspaceId $LogAnalyticsWorkspaceId
+ 
+
+$temp_default = $EventHubNamespace
+If (!($value = Read-Host "EventHubNamespace[$temp_default]")) { $value = $temp_default }
+$EventHubNamespace = $value
+
+
+$TableName         = Read-Host -Prompt "Log Analytics Table (CASE SENSITIVE)"
+$startperiod = Read-Host -Prompt "Log export start date YYYY-MM-DD HH:MM:SS"
+$endperiod   = Read-Host -Prompt "Log export end   date YYYY-MM-DD HH:MM:SS"
+#Save the original end period:
+$finalperiod = $endperiod
+#Get the new period based on incremental value (in minutes)
+$endperiod = IncrementQuery -period $startperiod -type "MIN" -finalperiod $finalperiod
+
+    DO
+    {
+            Write-Host "** Query on start= $startperiod       end= $endperiod"
+            Try {
+                
+                QueryLogAnalyticsSend -TableName $TableName -startperiod $startperiod -endperiod $endperiod -LogAnalyticsWorkspaceId $LogAnalyticsWorkspaceId -ErrorAction Stop
+             }
+
+            Catch {
+                Write-Host "Error detected during call to QueryLogAnalyticsSend"
+ 
+            }
+
+            #Get new enddate
+            $startperiod = IncrementQuery -period $endperiod -type "SEC" -finalperiod $finalperiod
+            $endperiod =   IncrementQuery -period $endperiod -type "MIN" -finalperiod $finalperiod
+            
+
+    } While ($endperiod -le $finalperiod)
+
+    Write-Host "** Normal end"
