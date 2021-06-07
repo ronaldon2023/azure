@@ -13,8 +13,7 @@
 # v1.0 production configuration of heartbeathistory ported rows successfully.
 #      table mapping created manually in ADX and data ingestion created manually.
 ###################################################################################################################################################################
-#6664044a-899d-4d66-84a4-c4bc8d8ecae8    CLODSECLAB2 LA
-#5dd67a86-09ea-4310-bf07-99c209a19ec1    PROD
+
 
 PARAM(   
                     
