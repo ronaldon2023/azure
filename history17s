@@ -172,8 +172,11 @@ function QueryLogAnalyticsSend {
                     $resultsize = [System.Text.Encoding]::UTF8.GetByteCount($body_join)
 
                     #check if file size + body > max allowed size
-
-                    if($filedisksize.Length+$resultsize -gt $global:maxfilesize){
+                    $mymax = "3821223823"
+                    Write-Host "File size will be:$filedisksize.Length+$resultsize"
+                                        
+                    #if($filedisksize.Length+$resultsize -gt $global:maxfilesize){
+                     if($filedisksize.Length+$resultsize -gt $mymax){
                         Write-Host "Number of rows processed:$irow"
                         saveToFile -output "]}" -filepath "$($folder_for_output)\$($getperiod)_$($filecount).json"
                         $rowtimestampend = $row.'TimeGenerated'
