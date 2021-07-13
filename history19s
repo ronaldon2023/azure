@@ -1,15 +1,12 @@
 #################################################################################################################################################################
 # Remarks:     06/29/21: history19s.ps1 launches probing query every 50 iterations and at beginning of script to adjust timers.
 #              Script to export data from Log Analytics to Blob Storage. Added suport for blob tags on 06/24/21.
-#                          
-#
+#                          #
 #              v12+ adding user input in function. Added ability to increment queries to avoid memory limitations and timeout.
-#               This version requests user input for a given Log Analytic table name. It queries the LA table based on specified time period.  
-#              Name of event hub topic is derived from the user input Log Analytics table name (suffix 'am-' is added to lower case table name provided by the user).
-#              A Rest API call is made and the output from the LA query is submitted to event hub.
-#              Row by row is iterated and size is calculated for a group of rows before submission to Event Hub. 
+#              This version requests user input for a given Log Analytic table name. It queries the LA table based on specified time period.  
+#              
 # 
-# 
+# Conact: rnascimento@deloitte.com 
 ###################################################################################################################################################################
 
 PARAM(   
