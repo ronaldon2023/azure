@@ -16,8 +16,7 @@ PARAM(
                     
 
     [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
-    [Parameter(Mandatory=$false)] $Access_Policy_Key="ArVc/hr7t+N89dQL+E9j3wQfxkY2T9txcIMBcjbHiHE=",    #PROD ECY
-    #[Parameter(Mandatory=$false)] $Access_Policy_Key="Eibn9UvahjJjbxr6TIq6lmod6i7o2NXDVG/acBZ9NSk="    #CLOUD  SEC2
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="default=",    
     [Parameter(Mandatory=$false)] $INCR=5,
     $nugetPackageLocation = "$($env:USERPROFILE)\.nuget\packages", #global-packages", # local
     $nugetIndex = "https://api.nuget.org/v3/index.json",
@@ -109,17 +108,16 @@ function QueryLogAnalyticsSend {
 
         Try 
         {
-
             $output = (Invoke-AzOperationalInsightsQuery -WorkspaceId $LogAnalyticsWorkspaceId -Query $query).Results
         }
 
-        Catch {
+        Catch 
+        {
             write-Error "Error : $_.ErrorDetails.Message"
             write-Error "Command : $_.InvocationInfo.Line"
             Write-Host "Resend:$query"
             $query | Out-File $logpath -Append
             "Error : $_.ErrorDetails.Message" | Out-File $logpath -Append
-
         }
           
         $irow = 0    
@@ -326,9 +324,6 @@ function saveToFile
         Write-Error "Error saving to file"
         Write-Error "Error : $_.ErrorDetails.Message"
         Write-Error "Command : $_.InvocationInfo.Line"
-
-       
-        
     }
     
     return $updatedfile
@@ -342,8 +337,6 @@ function UploadToBlob
               $TableName,
               $tagtimestamp
              )
-
-     
         $starttag = $tagtimestamp[0]
         $tagbuilder = "startdate=$starttag&"
         $tagbuilder = $tagbuilder+"enddate="+$tagtimestamp[$tagtimestamp.length-1]
@@ -359,17 +352,13 @@ function UploadToBlob
                                    
         }
         Catch 
-        
         {
             Write-Warning "Error executing Azcopy!"
 
             "Error during AzCopy $status" | Out-File $logpath -Append
             write-Error "Error : $_.ErrorDetails.Message"
             write-Error "Command : $_.InvocationInfo.Line"
-
-
             return $false
-           
         }
 
         IF ($status -contains "Number of Transfers Failed: 0"){
@@ -437,35 +426,25 @@ function GetSampleQuery
         $size =  $checksampleoutsize  
         
 
-        IF ($size -ge 109671990) 
+        IF ($size -ge 40671990) 
         { 
-            $increment = 1
+            $increment = 0.5
             Write-Host "This appears to be a high density table.~72h to process 1/4 day history logs."
     
         }
-        elseif ($size -gt 79671990) 
+        
 
-        { $increment = 2 
-         Write-Host "This appears to be a medium-high density table.~48h to process 1 day history logs."
-             
-        }
-
-        elseif ($size -lt 99990) 
+        elseif ($size -lt 69990) 
         {
           $increment = 300
           Write-Host "This appears to be a sparse table.~8h to process 1 day history logs."
       
         }
-        elseif ($size -lt 30671990)
+        elseif ($size -lt 10671990)
         {
-          $increment = 07
+          $increment = 03
           Write-Host "This appears to be a medium-sparse table.~18h to process 1 day history logs."
      
-        }
-        elseif ($size -lt 60671990)
-        {
-            $increment = 03
-            Write-Host "This appears to be a medium dense table.~24h to process 1 day history logs."
         }
     }
     return $increment
@@ -548,3 +527,6 @@ $filecount = 0
 
 Write-Host "** Normal end"
 "Completed queries:$iloop" | Out-File $logpath -Append
+$completiontime = Get-Date 
+Write-Host $completiontime
+
