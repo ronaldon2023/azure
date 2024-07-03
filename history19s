@@ -6,7 +6,7 @@
 #              This version requests user input for a given Log Analytic table name. It queries the LA table based on specified time period.  
 #              
 # 
-# Conact: rnascimento@deloitte.com 
+# Conact: ronaldon2023@gmail.com
 ###################################################################################################################################################################
 
 PARAM(   
