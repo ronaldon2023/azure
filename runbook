@@ -17,9 +17,9 @@
 PARAM(   
            
     [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
-    [Parameter(Mandatory=$false)] $Access_Policy_Key="ArVc/hr7t+N89dQL+E9j3wQfxkY2T9txcIMBcjbHiHE=", #PROD ecy
+    [Parameter(Mandatory=$false)] $Access_Policy_Key="XXXE=", #PROD ecy
     [Parameter(Mandatory=$false)] $EventHubNamespace="ECY-HUB-Namespace01",
-    [Parameter(Mandatory=$false)] $LogAnalyticsWorkspaceId = "5dd67a86-09ea-4310-bf07-99c209a19ec1",
+    [Parameter(Mandatory=$false)] $LogAnalyticsWorkspaceId = "XXXXXX",
     [Parameter(Mandatory=$true)] $startperiod, 
     [Parameter(Mandatory=$true)] $endperiod,
     [Parameter(Mandatory=$true)] $TableName
