@@ -76,9 +76,7 @@ function get-SAStoken{
     $Signature = $HMAC.ComputeHash([Text.Encoding]::ASCII.GetBytes($SignatureString))
     $Signature = [Convert]::ToBase64String($Signature)
     $SASToken = "SharedAccessSignature sr=" + [System.Web.HttpUtility]::UrlEncode($URI) + "&sig=" + [System.Web.HttpUtility]::UrlEncode($Signature) + "&se=" + $Expires + "&skn=" + $Access_Policy_Name
-    
     return $SASToken
-
 }
 function QueryLogAnalyticsSend {  
         Param(
@@ -96,12 +94,10 @@ function QueryLogAnalyticsSend {
         $query = "$($TableName)| where TimeGenerated >= datetime($startperiod) and TimeGenerated <= datetime($endperiod)"
         Write-Host "$query" -ForegroundColor Cyan
         $query | Out-File $logpath -Append
-
         Try 
         {
             $output = (Invoke-AzOperationalInsightsQuery -WorkspaceId $LogAnalyticsWorkspaceId -Query $query).Results
         }
-
         Catch 
         {
             write-Error "Error : $_.ErrorDetails.Message"
@@ -110,7 +106,6 @@ function QueryLogAnalyticsSend {
             $query | Out-File $logpath -Append
             "Error : $_.ErrorDetails.Message" | Out-File $logpath -Append
         }
-          
         $irow = 0    
         $arrayrows = @() 
         $gettimestamp = @()
@@ -234,7 +229,6 @@ function GetUserInputObj
     {
         $endperiod   = Read-Host -Prompt "Log export end   date YYYY-MM-DD HH:MM:SS"
     }
-
     $value = @{}    
     #Build Blob container URI for AzCopy
     $blobcontainer = $TableName.ToLower()+"history"
@@ -257,12 +251,10 @@ function saveToFile
             $filepath
             )    
     Try
-    {
-       
+    {  
         Write-Host "Writing to file..."
         Write-Host "$($filepath)" -ForegroundColor Green
         $output  | Out-File  "$($filepath)" -Append
-
     }
     Catch
     {
@@ -270,7 +262,6 @@ function saveToFile
         Write-Error "Error : $_.ErrorDetails.Message"
         Write-Error "Command : $_.InvocationInfo.Line"
     }
-    
     return $updatedfile
 }
 
@@ -314,8 +305,7 @@ function UploadToBlob
             return $false
         }
 
-        return $true
-        
+        return $true   
 }
 
 function GetSampleQuery 
@@ -391,7 +381,6 @@ function GetSampleQuery
 ###############>
 
 $v = GetUserInputObj
-
 $LogAnalyticsWorkspaceId = $v.LogAnalyticsWorkspaceId.Trim() 
 #$SASTokenStorageAccount = $v.SASTokenStorageAccount.Trim()
 $TableName = $v.TableName.Trim()
