@@ -9,9 +9,7 @@
 # Conact: ronaldon2023@gmail.com
 ###################################################################################################################################################################
 
-PARAM(   
-                    
-
+PARAM(             
     [Parameter(Mandatory=$false)] $AccessPolicyName="RootManageSharedAccessKey",
     [Parameter(Mandatory=$false)] $Access_Policy_Key="default=",    
     [Parameter(Mandatory=$false)] $INCR=5,
@@ -27,7 +25,6 @@ PARAM(
     $Blob,
     $Table,
     $LAWID
-     
  )
 
 $location = Get-Location 
@@ -61,7 +58,6 @@ If ( -Not (test-path "$($location)logging_"))
     New-Item -Path "$($location)logging_" -ItemType Directory 
 }
 
-
 function get-SAStoken{
 
     Param(
@@ -69,7 +65,6 @@ function get-SAStoken{
         $EventHub,
         $Access_Policy_Name,
         $Access_Policy_Key
-
     )
     [Reflection.Assembly]::LoadWithPartialName("System.Web")| out-null
     $URI="$($EventHubNamespace).servicebus.windows.net/$($EventHub)"
@@ -85,7 +80,6 @@ function get-SAStoken{
     return $SASToken
 
 }
-
 function QueryLogAnalyticsSend {  
         Param(
         $TableName, 
@@ -130,26 +124,19 @@ function QueryLogAnalyticsSend {
     
              foreach ($row in $output) 
                 {
-                   
                     IF ($irow -eq 0) 
                     {
                         $rowtimestamp = $row.'TimeGenerated'
-                        $gettimestamp = $gettimestamp + $rowtimestamp
-                     
-                     
+                        $gettimestamp = $gettimestamp + $rowtimestamp    
                     }                    
                     $irow++
                     $row_json = $row | ConvertTo-Json -Compress -Depth 20
                     
                     $arrayrows = $arrayrows + $row_json
-
                 }   
                 Write-Host "Total of rows for this query:$irow" -ForegroundColor DarkGreen
-                 
                 $body_join = $arrayrows -join ","
                 #$folder_for_output = "K:\export_"
-                
-                
                 if($filecount -eq 0){
                    
                     Write-Host "Creating new file..."
@@ -157,12 +144,9 @@ function QueryLogAnalyticsSend {
                   
                     saveToFile -output "{`"records`":[" -filepath "$($folder_for_output)\$($getperiod)_$($filecount).json"
                     saveToFile -output $body_join -filepath "$($folder_for_output)\$($getperiod)_$($filecount).json"
-                   
-                    
                 }
                 else
                 {
-                    
                     $filedisksize = Get-Childitem -file "$($folder_for_output)\$($getperiod)_$filecount.json" | Select-Object length
                     $resultsize = [System.Text.Encoding]::UTF8.GetByteCount($body_join)
 
@@ -180,9 +164,7 @@ function QueryLogAnalyticsSend {
                         $status = UploadToBlob -TableName $TableName -blobsas $blobsas -tagtimestamp $gettimestamp -filetoupload "$($folder_for_output)\$($getperiod)_$($filecount).json" 
                         IF ($status)
                         {
-                           
                             Remove-Item -Path "$($folder_for_output)\$($getperiod)_$($filecount).json"
-
                         }
                         else 
                         {
@@ -194,7 +176,6 @@ function QueryLogAnalyticsSend {
                         saveToFile -output $body_join -filepath "$($folder_for_output)\$($getperiod)_$($filecount).json"
                     }
                     else{
-
                         #append to $filecount.json
                         saveToFile -output "," -filepath "$($folder_for_output)\$($getperiod)_$($filecount).json"
                         saveToFile -output $body_join -filepath "$($folder_for_output)\$($getperiod)_$($filecount).json"
@@ -203,40 +184,26 @@ function QueryLogAnalyticsSend {
                     }
                     }
                     if($statusjson -eq "end"){
-                        
                         $rowtimestampend = $row.'TimeGenerated'
                         $gettimestamp = $gettimestamp + $rowtimestampend
-                      
                         saveToFile -output "]}" -filepath "$($folder_for_output)\$($getperiod)_$($filecount).json"
-                       
                         $status = UploadToBlob -TableName $TableName -blobsas $blobsas -tagtimestamp $gettimestamp -filetoupload "$($folder_for_output)\$($getperiod)_$($filecount).json"
-                       
-
                         IF ($status)
                         {
                             Remove-Item -Path "$($folder_for_output)\$($getperiod)_$($filecount).json"
-                  
-
                         }
                         else 
                         {
                             Write-Warning "$($folder_for_output)\$($getperiod)_$($filecount).json"
                         }
-                    }
-                
-            }
-                
-                
+                    }   
+            }  
         else 
         {   
-            Write-Host "No data."
-                      
+            Write-Host "No data."                     
         }
     return $filecount 
-
-       
 }
-
 function GetUserInputObj 
 {
     $LogAnalyticsWorkspaceId = $LAWID
@@ -245,30 +212,21 @@ function GetUserInputObj
         $templa_default = "5dd67a86-09ea-4310-bf07-99c209a19ec1"
         If (!($value = Read-Host "LA WorkspaceId[$templa_default]")) { $value = $templa_default} 
         $LogAnalyticsWorkspaceId = $value
-     
     }
-    
     $blobsas = $Blob
     IF ($null -eq $Blob)
     {
         $blobsas = Read-Host -Prompt "Blob SAS Token URL" 
     }
-    
     $TableName = $Table
     IF ($null -eq $Table)
     { 
-
-        $TableName   = Read-Host -Prompt "Log Analytics Table (CASE SENSITIVE)"
-       
+        $TableName   = Read-Host -Prompt "Log Analytics Table (CASE SENSITIVE)"  
     }
-
     $startperiod = $StartDate
     IF ($null -eq $StartDate)
     { 
-
         $startperiod = Read-Host -Prompt "Log export start date YYYY-MM-DD HH:MM:SS"
-
-    
     }
 
     $endperiod = $EndDate
@@ -277,36 +235,27 @@ function GetUserInputObj
         $endperiod   = Read-Host -Prompt "Log export end   date YYYY-MM-DD HH:MM:SS"
     }
 
-    $value = @{}
-
-    
+    $value = @{}    
     #Build Blob container URI for AzCopy
     $blobcontainer = $TableName.ToLower()+"history"
     $blobsas = $blobsas.Replace(".net",".net/$blobcontainer")
-    
     $value.LogAnalyticsWorkspaceId = $LogAnalyticsWorkspaceId
     $value.TableName = $TableName
     $value.startperiod = $startperiod
     $value.endperiod = $endperiod
     $value.blobsas = $blobsas
     $valueObj = (New-Object PSObject -Property $value)
-
     "-Printing start, end, LA ID----------------------------------" | Out-File $logpath -Append
     $startperiod+" "+$endperiod + " " + $LogAnalyticsWorkspaceId    | Out-File $logpath -Append
     "-end---------------------------------------------------------" | Out-File $logpath -Append
-
     return $valueObj
-
 }
-
 function saveToFile 
 {  
-
       PARAM(
             $output,
             $filepath
-            )
-       
+            )    
     Try
     {
        
@@ -317,7 +266,6 @@ function saveToFile
     }
     Catch
     {
-
         Write-Error "Error saving to file"
         Write-Error "Error : $_.ErrorDetails.Message"
         Write-Error "Command : $_.InvocationInfo.Line"
@@ -343,15 +291,12 @@ function UploadToBlob
         $status = ""      
         #Call AzCopy 
         Try 
-        {
-           
-            $status = & 'K:\azcopy.exe' copy $filetoupload $blobsas --blob-tags=$tagbuilder
-                                   
+        {      
+            $status = & 'K:\azcopy.exe' copy $filetoupload $blobsas --blob-tags=$tagbuilder                          
         }
         Catch 
         {
-            Write-Warning "Error executing Azcopy!"
-
+            Write-Warning "Error executing Azcopy!
             "Error during AzCopy $status" | Out-File $logpath -Append
             write-Error "Error : $_.ErrorDetails.Message"
             write-Error "Command : $_.InvocationInfo.Line"
@@ -419,23 +364,16 @@ function GetSampleQuery
     {
     
         $checksampleoutsize =  [System.Text.Encoding]::UTF8.GetByteCount($converted_out_json)
-    
         $size =  $checksampleoutsize  
-        
-
         IF ($size -ge 40671990) 
         { 
             $increment = 0.5
-            Write-Host "This appears to be a high density table.~72h to process 1/4 day history logs."
-    
+            Write-Host "This appears to be a high density table.~72h to process 1/4 day history logs.
         }
-        
-
         elseif ($size -lt 69990) 
         {
           $increment = 300
           Write-Host "This appears to be a sparse table.~8h to process 1 day history logs."
-      
         }
         elseif ($size -lt 10671990)
         {
@@ -485,9 +423,8 @@ $filecount = 0
             
             $StartDateString = $currentDate.ToString("yyyy-MM-dd HH:mm:ss.ffffff")
             $intincr = 1
-
         }
-        
+      
         IF ($iloop % 50 -eq 0) 
         { 
             $incremental = GetSampleQuery -LogAnalyticsWorkspaceId $LogAnalyticsWorkspaceId -TableName $TableName -startperiod $startperiod
@@ -512,7 +449,6 @@ $filecount = 0
         elseif ($currentdate -eq $startdate) 
         {
             $statusjson = "begin"
-
         }       
         
         $count = QueryLogAnalyticsSend -TableName $TableName -startperiod  $LAstart -endperiod $LAend -LogAnalyticsWorkspaceId $LogAnalyticsWorkspaceId -statusjson $statusjson -fc $filecount -filename $startperiod -blobsas $blobsas
@@ -526,4 +462,3 @@ Write-Host "** Normal end"
 "Completed queries:$iloop" | Out-File $logpath -Append
 $completiontime = Get-Date 
 Write-Host $completiontime
-
