@@ -7,7 +7,7 @@
 # Constraints: Event hub can process maximum 1MB per message or 1000 events per second at this time. Log Analytics query can return max 500K rows or 64MB. However
 #              the event hub constraints are expected to be more prominent.
 #
-# Hardcoded $LogAnalyticsWorkspaceId and AccessPolicyName/Key
+# Hardcoded $LogAnalyticsWorkspaceId and AccessPolicyName/Key (Once Azure Runbook Identity is implemented, change this).
 # 
 ###################################################################################################################################################################
 
